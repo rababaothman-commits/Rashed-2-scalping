@@ -1,12 +1,14 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import yfinance as yf
+import pandas as pd
 import logging
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = "8986723623:AAHQeHlj4XmwVZVgAhIFQoONM-IOVyFUOXk"
+TOKEN = "8456213095:AAHzAGUwWs1eSzbR_TeJdsb6FXshFJ-lfCY"
 
 PAIRS = {
     "GOLD": {"symbol": "GC=F", "name": "XAUUSD 🥇", "ar": "الذهب"},
@@ -20,73 +22,95 @@ PAIRS = {
     "OIL": {"symbol": "CL=F", "name": "USOIL 🛢️", "ar": "النفط"}
 }
 
+def calculate_rsi(data, period=14):
+    """Calculate RSI safely"""
+    try:
+        delta = data.diff()
+        gain = delta.where(delta > 0, 0).rolling(window=period).mean()
+        loss = -delta.where(delta < 0, 0).rolling(window=period).mean()
+        
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        return float(rsi.iloc[-1]) if not np.isnan(rsi.iloc[-1]) else 50.0
+    except Exception as e:
+        logger.error(f"RSI calculation error: {e}")
+        return 50.0
+
 def get_data(pair):
     try:
         symbol = PAIRS[pair]["symbol"]
         logger.info(f"Fetching data for {pair} ({symbol})")
         
-        h = yf.Ticker(symbol).history(period="1mo", interval="1d")
-        if h.empty:
-            logger.warning(f"Empty data for {pair}")
+        h = yf.Ticker(symbol).history(period="60d", interval="1d")
+        
+        if h.empty or len(h) < 14:
+            logger.warning(f"Insufficient data for {pair}")
             return None
-            
-        c = round(h['Close'].iloc[-1], 2)
-        hi = round(h['High'].max(), 2)
-        lo = round(h['Low'].min(), 2)
-        delta = h['Close'].diff()
-        gain = delta.where(delta > 0, 0).rolling(14).mean().iloc[-1]
-        loss = -delta.where(delta < 0, 0).rolling(14).mean().iloc[-1]
         
-        if loss == 0:
-            rsi = 100.0
-        else:
-            rsi = round(100 - (100 / (1 + gain / loss)), 1)
+        # Safe data extraction
+        c = float(h['Close'].iloc[-1])
+        hi = float(h['High'].max())
+        lo = float(h['Low'].min())
         
-        sma = h['Close'].rolling(20).mean().iloc[-1]
+        # Calculate RSI safely
+        rsi = calculate_rsi(h['Close'], period=14)
+        
+        # Calculate SMA safely
+        sma = float(h['Close'].rolling(20).mean().iloc[-1])
         trend = "🔼 صاعد" if c > sma else "🔽 هابط"
         
-        piv = round((hi + lo + c) / 3, 2)
-        r1 = round(2 * piv - lo, 2)
-        r2 = round(piv + (hi - lo), 2)
-        r3 = round(hi + 2 * (piv - lo), 2)
-        s1 = round(2 * piv - hi, 2)
-        s2 = round(piv - (hi - lo), 2)
-        s3 = round(lo - 2 * (hi - piv), 2)
+        # Pivot levels
+        piv = (hi + lo + c) / 3
+        r1 = 2 * piv - lo
+        r2 = piv + (hi - lo)
+        r3 = hi + 2 * (piv - lo)
+        s1 = 2 * piv - hi
+        s2 = piv - (hi - lo)
+        s3 = lo - 2 * (hi - piv)
         
-        # IMPROVED SIGNAL LOGIC - Works better for all pairs including GOLD
+        # Signal generation with improved logic
         if rsi < 30:
             sig = "🟢 شراء قوي"
             entry = c
-            tp = round(c * 1.01, 2)
-            sl = round(c * 0.99, 2)
+            tp = c * 1.01
+            sl = c * 0.99
         elif rsi < 40:
             sig = "🟢 شراء"
             entry = c
-            tp = round(c * 1.008, 2)
-            sl = round(c * 0.992, 2)
+            tp = c * 1.008
+            sl = c * 0.992
         elif rsi > 70:
             sig = "🔴 بيع قوي"
             entry = c
-            tp = round(c * 0.99, 2)
-            sl = round(c * 1.01, 2)
+            tp = c * 0.99
+            sl = c * 1.01
         elif rsi > 60:
             sig = "🔴 بيع"
             entry = c
-            tp = round(c * 0.992, 2)
-            sl = round(c * 1.008, 2)
+            tp = c * 0.992
+            sl = c * 1.008
         else:
             sig = "⏸️ انتظار"
             entry = None
             tp = None
             sl = None
         
-        logger.info(f"{pair} - RSI: {rsi}, Signal: {sig}")
+        logger.info(f"{pair} ✅ - RSI: {rsi:.1f}, Signal: {sig}")
         
         return {
-            "c": c, "trend": trend, "rsi": rsi,
-            "r1": r1, "r2": r2, "r3": r3,
-            "s1": s1, "s2": s2, "s3": s3,
-            "sig": sig, "entry": entry, "tp": tp, "sl": sl
+            "c": round(c, 2), 
+            "trend": trend, 
+            "rsi": round(rsi, 1),
+            "r1": round(r1, 2), 
+            "r2": round(r2, 2), 
+            "r3": round(r3, 2),
+            "s1": round(s1, 2), 
+            "s2": round(s2, 2), 
+            "s3": round(s3, 2),
+            "sig": sig, 
+            "entry": round(entry, 2) if entry else None, 
+            "tp": round(tp, 2) if tp else None, 
+            "sl": round(sl, 2) if sl else None
         }
     except Exception as e:
         logger.error(f"Error fetching data for {pair}: {str(e)}")
@@ -132,6 +156,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             d = get_data(key)
             if d:
                 msg += f"{PAIRS[key]['name']}: {d['c']} {d['trend']}\n"
+            else:
+                msg += f"{PAIRS[key]['name']}: ❌\n"
         await q.edit_message_text(
             msg,
             reply_markup=InlineKeyboardMarkup([
@@ -146,13 +172,12 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     name = PAIRS[q.data]['name']
-    ar = PAIRS[q.data]['ar']
 
     msg = (
         f"{'━'*20}\n"
         f"📌 {name}\n"
         f"{'━'*20}\n\n"
-        f"💰 سعر الدخول: {d['c']}\n"
+        f"💰 السعر الحالي: {d['c']}\n"
         f"📈 الاتجاه: {d['trend']}\n"
         f"⚡ RSI: {d['rsi']}\n\n"
         f"{'━'*20}\n"
@@ -187,5 +212,5 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CallbackQueryHandler(button))
-print("✅ Bot is running!")
+print("✅ Trading Bot is running!")
 app.run_polling(drop_pending_updates=True)
