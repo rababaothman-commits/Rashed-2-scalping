@@ -8,7 +8,7 @@ import numpy as np
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = "8456213095:AAHzAGUwWs1eSzbR_TeJdsb6FXshFJ-lfCY"
+TOKEN = "8986723623:AAHQeHlj4XmwVZVgAhIFQoONM-IOVyFUOXk"
 
 PAIRS = {
     "GOLD": {"symbol": "GC=F", "name": "XAUUSD 🥇", "ar": "الذهب"},
