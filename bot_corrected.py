@@ -7,7 +7,7 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = "8456213095:AAHzAGUwWs1eSzbR_TeJdsb6FXshFJ-lfCY"
+TOKEN = "8986723623:AAGGTJ8DstBdZOAk648JHA8x-2_dJ3URT0E"
 
 # EQUITI MT5 CREDENTIALS
 MT5_LOGIN = 1140633
