@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = "8986723623:AAGlC1T8ZWEonOD58ChGBhRsEBdQ9nIp4Pc"
+TOKEN = "8986723623:AAGGTJ8DstBdZOAk648JHA8x-2_dJ3URT0E"
 FINNHUB_API_KEY = "d8fne4hr01qn443aropgd8fne4hr01qn443aroq0"  # Get free at https://finnhub.io
 
 PAIRS = {
