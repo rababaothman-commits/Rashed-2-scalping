@@ -1,6 +1,4 @@
 python-telegram-bot==20.3
-finnhub-python==2.4.28
-yfinance==0.2.32
-requests==2.31.0
+MetaTrader5==5.0.45
 pandas>=1.5.0
-numpy>=1.24.0
+requests==2.31.0
