@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN = "8986723623:AAGlC1T8ZWEonOD58ChGBhRsEBdQ9nIp4Pc"
-FINNHUB_API_KEY = "d8fn3b9r01qn443aqb4gd8fn3b9r01qn443aqb50"  # Get free at https://finnhub.io
+FINNHUB_API_KEY = "d8fne4hr01qn443aropgd8fne4hr01qn443aroq0"  # Get free at https://finnhub.io
 
 PAIRS = {
     "GOLD": {"symbol": "GC=F", "name": "XAUUSD 🥇", "ar": "الذهب"},
