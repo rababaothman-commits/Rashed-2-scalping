@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import yfinance as yf
 
-TOKEN = "8986723623:AAGfL-N-EVeyKjaVXM4i7iiLIn_vSTZxV2I"
+TOKEN = "8986723623:AAHbF-yZAY5fnGCY54eRaGbCed8NNcObwwk"
 
 PAIRS = {
     "GOLD": {"symbol": "GC=F", "name": "XAUUSD 🥇", "ar": "الذهب"},
@@ -16,14 +16,30 @@ PAIRS = {
     "OIL": {"symbol": "CL=F", "name": "USOIL 🛢️", "ar": "النفط"}
 }
 
+# Different RSI thresholds for different assets
+RSI_THRESHOLDS = {
+    "GOLD": {"buy": 25, "sell": 75},
+    "SILVER": {"buy": 30, "sell": 70},
+    "NASDAQ": {"buy": 30, "sell": 70},
+    "DOW_JONES": {"buy": 30, "sell": 70},
+    "EURUSD": {"buy": 30, "sell": 70},
+    "USDJPY": {"buy": 30, "sell": 70},
+    "GBPUSD": {"buy": 30, "sell": 70},
+    "BITCOIN": {"buy": 35, "sell": 65},
+    "OIL": {"buy": 28, "sell": 72}
+}
+
 def get_data(pair):
     try:
         h = yf.Ticker(PAIRS[pair]["symbol"]).history(period="1mo", interval="1d")
         if h.empty:
             return None
+        
         c = round(h['Close'].iloc[-1], 2)
         hi = round(h['High'].max(), 2)
         lo = round(h['Low'].min(), 2)
+        
+        # Calculate RSI
         delta = h['Close'].diff()
         gain = delta.where(delta > 0, 0).rolling(14).mean().iloc[-1]
         loss = -delta.where(delta < 0, 0).rolling(14).mean().iloc[-1]
@@ -31,8 +47,13 @@ def get_data(pair):
             rsi = 100.0
         else:
             rsi = round(100 - (100 / (1 + gain / loss)), 1)
+        
+        # Calculate SMA for trend
         sma = h['Close'].rolling(20).mean().iloc[-1]
         trend = "🔼 صاعد" if c > sma else "🔽 هابط"
+        is_uptrend = c > sma
+        
+        # Calculate Pivot Points
         piv = round((hi + lo + c) / 3, 2)
         r1 = round(2 * piv - lo, 2)
         r2 = round(piv + (hi - lo), 2)
@@ -40,28 +61,46 @@ def get_data(pair):
         s1 = round(2 * piv - hi, 2)
         s2 = round(piv - (hi - lo), 2)
         s3 = round(lo - 2 * (hi - piv), 2)
-        if rsi < 30:
-            sig = "🟢 شراء"
+        
+        # Get RSI thresholds for this pair
+        rsi_buy = RSI_THRESHOLDS[pair]["buy"]
+        rsi_sell = RSI_THRESHOLDS[pair]["sell"]
+        
+        # Generate signals with TREND CONFIRMATION
+        if rsi < rsi_buy and is_uptrend:  # Buy only if oversold AND in uptrend
+            sig = "🟢 شراء قوي"
             entry = c
             tp = round(c * 1.005, 2)
             sl = round(c * 0.997, 2)
-        elif rsi > 70:
-            sig = "🔴 بيع"
+        elif rsi > rsi_sell and not is_uptrend:  # Sell only if overbought AND in downtrend
+            sig = "🔴 بيع قوي"
             entry = c
             tp = round(c * 0.995, 2)
             sl = round(c * 1.003, 2)
+        elif rsi < rsi_buy:  # Oversold but no trend confirmation
+            sig = "🟡 شراء ضعيف"
+            entry = c
+            tp = round(c * 1.003, 2)
+            sl = round(c * 0.995, 2)
+        elif rsi > rsi_sell:  # Overbought but no trend confirmation
+            sig = "🟠 بيع ضعيف"
+            entry = c
+            tp = round(c * 0.997, 2)
+            sl = round(c * 1.005, 2)
         else:
             sig = "⏸️ انتظار"
             entry = None
             tp = None
             sl = None
+        
         return {
             "c": c, "trend": trend, "rsi": rsi,
             "r1": r1, "r2": r2, "r3": r3,
             "s1": s1, "s2": s2, "s3": s3,
             "sig": sig, "entry": entry, "tp": tp, "sl": sl
         }
-    except:
+    except Exception as e:
+        print(f"Error fetching data for {pair}: {e}")
         return None
 
 def kb():
@@ -124,7 +163,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{'━'*20}\n"
         f"📌 {name}\n"
         f"{'━'*20}\n\n"
-        f"💰 سعر الدخول: {d['c']}\n"
+        f"💰 السعر الحالي: {d['c']}\n"
         f"📈 الاتجاه: {d['trend']}\n"
         f"⚡ RSI: {d['rsi']}\n\n"
         f"{'━'*20}\n"
@@ -143,8 +182,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if d['entry']:
         msg += (
             f"\n💵 سعر الدخول: {d['entry']}"
-            f"\n🎯 الهدف TP: {d['tp']}"
-            f"\n🛑 وقف الخسارة SL: {d['sl']}"
+            f"\n✅ الهدف TP: {d['tp']}"
+            f"\n❌ وقف الخسارة SL: {d['sl']}"
         )
 
     msg += f"\n{'━'*20}"
@@ -155,12 +194,13 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙 رجوع للقائمة", callback_data="back")]
         ])
     )
-except Exception as e:
-    print(e)
-    return None
 
-app = Application.builder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CallbackQueryHandler(button))
-print("Bot is running!")
-app.run_polling(drop_pending_updates=True)
+def main():
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button))
+    print("🤖 Bot is running!")
+    app.run_polling(drop_pending_updates=True)
+
+if __name__ == "__main__":
+    main()
