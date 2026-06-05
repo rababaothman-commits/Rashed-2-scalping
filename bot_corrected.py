@@ -155,6 +155,9 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙 رجوع للقائمة", callback_data="back")]
         ])
     )
+except Exception as e:
+    print(e)
+    return None
 
 app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
