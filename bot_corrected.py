@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import yfinance as yf
 
-TOKEN = "8456213095:AAHzAGUwWs1eSzbR_TeJdsb6FXshFJ-lfCY"
+TOKEN = "8986723623:AAFN5c5eFsHsqiiEgpeKWhVwm_vn69Czk6s"
 
 PAIRS = {
     "GOLD": {"symbol": "GC=F", "name": "XAUUSD 🥇", "ar": "الذهب"},
