@@ -5,7 +5,7 @@ import yfinance as yf
 TOKEN = "8986723623:AAHbF-yZAY5fnGCY54eRaGbCed8NNcObwwk"
 
 PAIRS = {
-    "GOLD": {"symbol": "GLD", "name": "XAUUSD 🥇", "ar": "الذهب"},
+    "GOLD": {"symbol": "GC=F", "name": "XAUUSD 🥇", "ar": "الذهب"},
     "SILVER": {"symbol": "SI=F", "name": "XAGUSD 🥈", "ar": "الفضة"},
     "NASDAQ": {"symbol": "NQ=F", "name": "NASDAQ 📊", "ar": "ناسداك"},
     "DOW_JONES": {"symbol": "YM=F", "name": "US30 📈", "ar": "داو جونز"},
