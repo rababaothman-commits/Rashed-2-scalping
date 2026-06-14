@@ -107,15 +107,18 @@ def get_gold_data_4h():
         return None
 
 def get_gold_data_1d():
-    """Fetch Gold data from Yahoo Finance - 1D Timeframe"""
+    """Fetch Gold data from Twelve Data API - 1D Timeframe"""
     try:
-        h = yf.Ticker("GC=F").history(period="1mo", interval="1d")
-        if h.empty:
+        url = f"https://api.twelvedata.com/time_series?symbol=GC/USD&interval=1day&outputsize=30&apikey={TWELVE_TOKEN}"
+        response = requests.get(url).json()
+        
+        if "values" not in response or not response["values"]:
             return None
         
-        closes = h['Close'].tolist()
-        highs = h['High'].tolist()
-        lows = h['Low'].tolist()
+        values = response["values"]
+        closes = [float(v['close']) for v in values]
+        highs = [float(v['high']) for v in values]
+        lows = [float(v['low']) for v in values]
         
         return calculate_indicators(closes, highs, lows)
     except Exception as e:
