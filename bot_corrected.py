@@ -4,7 +4,7 @@ import yfinance as yf
 import requests
 from datetime import datetime, timedelta
 
-TOKEN = "8456213095:AAHzAGUwWs1eSzbR_TeJdsb6FXshFJ-lfCY"
+TOKEN = "8986723623:AAGE_OYm8D2s2yfWmQE-vYuHZN9H3BKUjMA"
 TWELVE_TOKEN = "0642cfe3658b4e4186a379beacf02455"
 
 PAIRS = {
