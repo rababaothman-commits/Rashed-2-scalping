@@ -20,9 +20,9 @@ PAIRS = {
 }
 
 def get_gold_data_twelve():
-    """Fetch Gold data from Twelve Data API"""
+    """Fetch Gold data from Twelve Data API - 4H Timeframe"""
     try:
-        url = f"https://api.twelvedata.com/time_series?symbol=GC/USD&interval=1day&outputsize=30&apikey={TWELVE_TOKEN}"
+        url = f"https://api.twelvedata.com/time_series?symbol=GC/USD&interval=4h&outputsize=50&apikey={TWELVE_TOKEN}"
         response = requests.get(url).json()
         
         if "values" not in response or not response["values"]:
@@ -101,9 +101,9 @@ def get_gold_data_twelve():
         return None
 
 def get_data_yfinance(pair):
-    """Fetch data from Yahoo Finance"""
+    """Fetch data from Yahoo Finance - 4H Timeframe"""
     try:
-        h = yf.Ticker(PAIRS[pair]["symbol"]).history(period="1mo", interval="1d")
+        h = yf.Ticker(PAIRS[pair]["symbol"]).history(period="3mo", interval="4h")
         if h.empty:
             return None
         
