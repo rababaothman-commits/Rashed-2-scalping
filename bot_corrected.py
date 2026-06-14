@@ -1,35 +1,107 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import yfinance as yf
+import requests
+from datetime import datetime, timedelta
 
-TOKEN = "8986723623:AAHbF-yZAY5fnGCY54eRaGbCed8NNcObwwk"
+TOKEN = "8456213095:AAHzAGUwWs1eSzbR_TeJdsb6FXshFJ-lfCY"
+TWELVE_TOKEN = "0642cfe3658b4e4186a379beacf02455"
 
 PAIRS = {
-    "GOLD": {"symbol": "GC=F", "name": "XAUUSD 🥇", "ar": "الذهب"},
-    "SILVER": {"symbol": "SI=F", "name": "XAGUSD 🥈", "ar": "الفضة"},
-    "NASDAQ": {"symbol": "NQ=F", "name": "NASDAQ 📊", "ar": "ناسداك"},
-    "DOW_JONES": {"symbol": "YM=F", "name": "US30 📈", "ar": "داو جونز"},
-    "EURUSD": {"symbol": "EURUSD=X", "name": "EUR/USD 🇪🇺", "ar": "يورو/دولار"},
-    "USDJPY": {"symbol": "USDJPY=X", "name": "USD/JPY 🇯🇵", "ar": "دولار/ين"},
-    "GBPUSD": {"symbol": "GBPUSD=X", "name": "GBP/USD 🇬🇧", "ar": "جنيه/دولار"},
-    "BITCOIN": {"symbol": "BTC-USD", "name": "BITCOIN ₿", "ar": "بيتكوين"},
-    "OIL": {"symbol": "CL=F", "name": "USOIL 🛢️", "ar": "النفط"}
+    "GOLD": {"symbol": "GC=F", "name": "XAUUSD 🥇", "ar": "الذهب", "source": "twelve"},
+    "SILVER": {"symbol": "SI=F", "name": "XAGUSD 🥈", "ar": "الفضة", "source": "yfinance"},
+    "NASDAQ": {"symbol": "NQ=F", "name": "NASDAQ 📊", "ar": "ناسداك", "source": "yfinance"},
+    "DOW_JONES": {"symbol": "YM=F", "name": "US30 📈", "ar": "داو جونز", "source": "yfinance"},
+    "EURUSD": {"symbol": "EURUSD=X", "name": "EUR/USD 🇪🇺", "ar": "يورو/دولار", "source": "yfinance"},
+    "USDJPY": {"symbol": "USDJPY=X", "name": "USD/JPY 🇯🇵", "ar": "دولار/ين", "source": "yfinance"},
+    "GBPUSD": {"symbol": "GBPUSD=X", "name": "GBP/USD 🇬🇧", "ar": "جنيه/دولار", "source": "yfinance"},
+    "BITCOIN": {"symbol": "BTC-USD", "name": "BITCOIN ₿", "ar": "بيتكوين", "source": "yfinance"},
+    "OIL": {"symbol": "CL=F", "name": "USOIL 🛢️", "ar": "النفط", "source": "yfinance"}
 }
 
-# Different RSI thresholds for different assets
-RSI_THRESHOLDS = {
-    "GOLD": {"buy": 25, "sell": 75},
-    "SILVER": {"buy": 30, "sell": 70},
-    "NASDAQ": {"buy": 30, "sell": 70},
-    "DOW_JONES": {"buy": 30, "sell": 70},
-    "EURUSD": {"buy": 30, "sell": 70},
-    "USDJPY": {"buy": 30, "sell": 70},
-    "GBPUSD": {"buy": 30, "sell": 70},
-    "BITCOIN": {"buy": 35, "sell": 65},
-    "OIL": {"buy": 28, "sell": 72}
-}
+def get_gold_data_twelve():
+    """Fetch Gold data from Twelve Data API"""
+    try:
+        url = f"https://api.twelvedata.com/time_series?symbol=GC/USD&interval=1day&outputsize=30&apikey={TWELVE_TOKEN}"
+        response = requests.get(url).json()
+        
+        if "values" not in response or not response["values"]:
+            return None
+        
+        values = response["values"]
+        closes = [float(v['close']) for v in values]
+        highs = [float(v['high']) for v in values]
+        lows = [float(v['low']) for v in values]
+        
+        c = closes[0]  # Current close
+        hi = max(highs)
+        lo = min(lows)
+        
+        # Calculate RSI
+        deltas = [closes[i] - closes[i+1] for i in range(len(closes)-1)]
+        gains = [d if d > 0 else 0 for d in deltas]
+        losses = [-d if d < 0 else 0 for d in deltas]
+        
+        avg_gain = sum(gains[-14:]) / 14 if len(gains) >= 14 else sum(gains) / len(gains)
+        avg_loss = sum(losses[-14:]) / 14 if len(losses) >= 14 else sum(losses) / len(losses)
+        
+        if avg_loss == 0:
+            rsi = 100.0
+        else:
+            rsi = round(100 - (100 / (1 + avg_gain / avg_loss)), 1)
+        
+        # Calculate SMA 20
+        sma = sum(closes[:20]) / 20 if len(closes) >= 20 else sum(closes) / len(closes)
+        trend = "🔼 صاعد" if c > sma else "🔽 هابط"
+        
+        # Pivot Points
+        piv = round((hi + lo + c) / 3, 2)
+        r1 = round(2 * piv - lo, 2)
+        r2 = round(piv + (hi - lo), 2)
+        r3 = round(hi + 2 * (piv - lo), 2)
+        s1 = round(2 * piv - hi, 2)
+        s2 = round(piv - (hi - lo), 2)
+        s3 = round(lo - 2 * (hi - piv), 2)
+        
+        # Improved Signal Logic - Both BUY and SELL
+        if rsi < 30 and c < sma:
+            sig = "🟢 شراء قوي"
+            entry = c
+            tp = round(c * 1.008, 2)
+            sl = round(c * 0.995, 2)
+        elif rsi < 40 and c < sma:
+            sig = "🟢 شراء"
+            entry = c
+            tp = round(c * 1.005, 2)
+            sl = round(c * 0.997, 2)
+        elif rsi > 70 and c > sma:
+            sig = "🔴 بيع قوي"
+            entry = c
+            tp = round(c * 0.992, 2)
+            sl = round(c * 1.005, 2)
+        elif rsi > 60 and c > sma:
+            sig = "🔴 بيع"
+            entry = c
+            tp = round(c * 0.995, 2)
+            sl = round(c * 1.003, 2)
+        else:
+            sig = "⏸️ انتظار"
+            entry = None
+            tp = None
+            sl = None
+        
+        return {
+            "c": round(c, 2), "trend": trend, "rsi": rsi,
+            "r1": r1, "r2": r2, "r3": r3,
+            "s1": s1, "s2": s2, "s3": s3,
+            "sig": sig, "entry": entry, "tp": tp, "sl": sl
+        }
+    except Exception as e:
+        print(f"Gold Error: {e}")
+        return None
 
-def get_data(pair):
+def get_data_yfinance(pair):
+    """Fetch data from Yahoo Finance"""
     try:
         h = yf.Ticker(PAIRS[pair]["symbol"]).history(period="1mo", interval="1d")
         if h.empty:
@@ -43,17 +115,17 @@ def get_data(pair):
         delta = h['Close'].diff()
         gain = delta.where(delta > 0, 0).rolling(14).mean().iloc[-1]
         loss = -delta.where(delta < 0, 0).rolling(14).mean().iloc[-1]
+        
         if loss == 0:
             rsi = 100.0
         else:
             rsi = round(100 - (100 / (1 + gain / loss)), 1)
         
-        # Calculate SMA for trend
+        # Calculate SMA 20
         sma = h['Close'].rolling(20).mean().iloc[-1]
         trend = "🔼 صاعد" if c > sma else "🔽 هابط"
-        is_uptrend = c > sma
         
-        # Calculate Pivot Points
+        # Pivot Points
         piv = round((hi + lo + c) / 3, 2)
         r1 = round(2 * piv - lo, 2)
         r2 = round(piv + (hi - lo), 2)
@@ -62,31 +134,27 @@ def get_data(pair):
         s2 = round(piv - (hi - lo), 2)
         s3 = round(lo - 2 * (hi - piv), 2)
         
-        # Get RSI thresholds for this pair
-        rsi_buy = RSI_THRESHOLDS[pair]["buy"]
-        rsi_sell = RSI_THRESHOLDS[pair]["sell"]
-        
-        # Generate signals with TREND CONFIRMATION
-        if rsi < rsi_buy and is_uptrend:  # Buy only if oversold AND in uptrend
+        # Improved Signal Logic - Both BUY and SELL
+        if rsi < 30 and c < sma:
             sig = "🟢 شراء قوي"
+            entry = c
+            tp = round(c * 1.008, 2)
+            sl = round(c * 0.995, 2)
+        elif rsi < 40 and c < sma:
+            sig = "🟢 شراء"
             entry = c
             tp = round(c * 1.005, 2)
             sl = round(c * 0.997, 2)
-        elif rsi > rsi_sell and not is_uptrend:  # Sell only if overbought AND in downtrend
+        elif rsi > 70 and c > sma:
             sig = "🔴 بيع قوي"
+            entry = c
+            tp = round(c * 0.992, 2)
+            sl = round(c * 1.005, 2)
+        elif rsi > 60 and c > sma:
+            sig = "🔴 بيع"
             entry = c
             tp = round(c * 0.995, 2)
             sl = round(c * 1.003, 2)
-        elif rsi < rsi_buy:  # Oversold but no trend confirmation
-            sig = "🟡 شراء ضعيف"
-            entry = c
-            tp = round(c * 1.003, 2)
-            sl = round(c * 0.995, 2)
-        elif rsi > rsi_sell:  # Overbought but no trend confirmation
-            sig = "🟠 بيع ضعيف"
-            entry = c
-            tp = round(c * 0.997, 2)
-            sl = round(c * 1.005, 2)
         else:
             sig = "⏸️ انتظار"
             entry = None
@@ -100,8 +168,15 @@ def get_data(pair):
             "sig": sig, "entry": entry, "tp": tp, "sl": sl
         }
     except Exception as e:
-        print(f"Error fetching data for {pair}: {e}")
+        print(f"YFinance Error: {e}")
         return None
+
+def get_data(pair):
+    """Route to appropriate data source"""
+    if pair == "GOLD":
+        return get_gold_data_twelve()
+    else:
+        return get_data_yfinance(pair)
 
 def kb():
     return InlineKeyboardMarkup([
@@ -195,12 +270,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     )
 
-def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button))
-    print("🤖 Bot is running!")
-    app.run_polling(drop_pending_updates=True)
-
-if __name__ == "__main__":
-    main()
+app = Application.builder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CallbackQueryHandler(button))
+print("Bot is running!")
+app.run_polling(drop_pending_updates=True)
